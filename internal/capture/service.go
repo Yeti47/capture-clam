@@ -24,18 +24,49 @@ type VideoDevice struct {
 	Name   string
 }
 
+// Config contains configurable parameters for the capture pipeline.
+type Config struct {
+	Framerate      string // e.g., "60/1"
+	VideoFormat    string // e.g., "image/jpeg"
+	AudioFormat    string // e.g., "S16LE"
+	AudioRate      int    // e.g., 48000
+	AudioChannels  int    // e.g., 2
+	VideoQueueSize int    // max-size-buffers for video queue
+	AudioQueueSize int    // max-size-buffers for audio queue
+}
+
+// DefaultConfig returns sensible defaults for capture.
+func DefaultConfig() Config {
+	return Config{
+		Framerate:      "60/1",
+		VideoFormat:    "image/jpeg",
+		AudioFormat:    "S16LE",
+		AudioRate:      48000,
+		AudioChannels:  2,
+		VideoQueueSize: 2,
+		AudioQueueSize: 32,
+	}
+}
+
 // Service handles video and audio capture operations.
 type Service struct {
 	videoDevice string
 	audioDevice string
+	config      Config
 	cmd         *exec.Cmd
 }
 
-// New creates a new capture service.
+// New creates a new capture service with default configuration.
 func New(videoDevice, audioDevice string) *Service {
+	return NewWithConfig(videoDevice, audioDevice, DefaultConfig())
+}
+
+// NewWithConfig creates a new capture service with custom configuration.
+func NewWithConfig(videoDevice, audioDevice string, config Config) *Service {
 	return &Service{
 		videoDevice: videoDevice,
 		audioDevice: audioDevice,
+		config:      config,
 	}
 }
 
@@ -114,13 +145,18 @@ func GetDefaultVideoDevice() (string, error) {
 func (s *Service) Start() error {
 	gstArgs := []string{"-v",
 		"v4l2src", "device=" + s.videoDevice, "!",
-		"image/jpeg,framerate=" + "60/1", "!", "jpegdec", "!", "videoconvert", "!", "queue", "leaky=downstream", "max-size-buffers=2", "!", "autovideosink", "sync=false",
+		fmt.Sprintf("%s,framerate=%s", s.config.VideoFormat, s.config.Framerate), "!", "jpegdec", "!", "videoconvert", "!",
+		"queue", "leaky=downstream", fmt.Sprintf("max-size-buffers=%d", s.config.VideoQueueSize), "!",
+		"autovideosink", "sync=false",
 	}
 
 	if s.audioDevice != "" {
 		gstArgs = append(gstArgs,
 			"pulsesrc", "device="+s.audioDevice, "!",
-			"audio/x-raw,format=S16LE,rate=48000,channels=2", "!", "audioconvert", "!", "audioresample", "!", "queue", "leaky=downstream", "max-size-buffers=32", "!", "autoaudiosink", "sync=false",
+			fmt.Sprintf("audio/x-raw,format=%s,rate=%d,channels=%d", s.config.AudioFormat, s.config.AudioRate, s.config.AudioChannels), "!",
+			"audioconvert", "!", "audioresample", "!",
+			"queue", "leaky=downstream", fmt.Sprintf("max-size-buffers=%d", s.config.AudioQueueSize), "!",
+			"autoaudiosink", "sync=false",
 		)
 	}
 

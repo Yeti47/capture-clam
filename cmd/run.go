@@ -16,6 +16,14 @@ var (
 	audioSource         string
 	videoSource         string
 	resolvedAudioSource string
+	// Config flags
+	framerate      string
+	videoFormat    string
+	audioFormat    string
+	audioRate      int
+	audioChannels  int
+	videoQueueSize int
+	audioQueueSize int
 )
 
 var runCmd = &cobra.Command{
@@ -89,7 +97,30 @@ var runCmd = &cobra.Command{
 		}
 
 		// Create capture service with selected devices
-		svc := capture.New(videoSource, resolvedAudioSource)
+		config := capture.DefaultConfig()
+		if framerate != "" {
+			config.Framerate = framerate
+		}
+		if videoFormat != "" {
+			config.VideoFormat = videoFormat
+		}
+		if audioFormat != "" {
+			config.AudioFormat = audioFormat
+		}
+		if audioRate > 0 {
+			config.AudioRate = audioRate
+		}
+		if audioChannels > 0 {
+			config.AudioChannels = audioChannels
+		}
+		if videoQueueSize > 0 {
+			config.VideoQueueSize = videoQueueSize
+		}
+		if audioQueueSize > 0 {
+			config.AudioQueueSize = audioQueueSize
+		}
+
+		svc := capture.NewWithConfig(videoSource, resolvedAudioSource, config)
 
 		fmt.Println("📺 Launching video preview (gstreamer)...")
 
@@ -129,5 +160,15 @@ var runCmd = &cobra.Command{
 func init() {
 	runCmd.Flags().StringVar(&audioSource, "audio-source", "", "Audio source device (index from list-audio or device name)")
 	runCmd.Flags().StringVar(&videoSource, "video-source", "", "Video device (index from list-video or device name, optional, defaults to first available)")
+
+	// Config flags
+	runCmd.Flags().StringVar(&framerate, "framerate", "", "Video framerate (default: 60/1)")
+	runCmd.Flags().StringVar(&videoFormat, "video-format", "", "Video format (default: image/jpeg)")
+	runCmd.Flags().StringVar(&audioFormat, "audio-format", "", "Audio format (default: S16LE)")
+	runCmd.Flags().IntVar(&audioRate, "audio-rate", 0, "Audio sample rate in Hz (default: 48000)")
+	runCmd.Flags().IntVar(&audioChannels, "audio-channels", 0, "Audio channels (default: 2)")
+	runCmd.Flags().IntVar(&videoQueueSize, "video-queue-size", 0, "Video queue buffer size (default: 2)")
+	runCmd.Flags().IntVar(&audioQueueSize, "audio-queue-size", 0, "Audio queue buffer size (default: 32)")
+
 	runCmd.MarkFlagRequired("audio-source")
 }

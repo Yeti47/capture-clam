@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Yeti47/capture-clam/internal/audio"
+	"github.com/Yeti47/capture-clam/internal/capture"
 
 	"github.com/spf13/cobra"
 )
@@ -15,8 +15,7 @@ var cleanupCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("🧹 Cleaning up audio loopback modules...")
 
-		audioMgr := audio.NewAudioManager("")
-		if err := audioMgr.Cleanup(); err != nil {
+		if err := capture.CleanupLoopbackModules(); err != nil {
 			fmt.Printf("❌ Error during cleanup: %v\n", err)
 			return
 		}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Yeti47/capture-clam/internal/devices"
+	"github.com/Yeti47/capture-clam/internal/capture"
 
 	"github.com/spf13/cobra"
 )
@@ -14,8 +14,7 @@ var listVideoCmd = &cobra.Command{
 	Short: "List available video devices",
 	Long:  `List all available V4L2 video devices.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		deviceLister := devices.NewDeviceLister()
-		videoDevices, err := deviceLister.ListVideoDevices()
+		videoDevices, err := capture.ListVideoDevices()
 		if err != nil {
 			fmt.Printf("❌ Error listing video devices: %v\n", err)
 			os.Exit(1)

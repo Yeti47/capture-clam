@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Yeti47/capture-clam/internal/devices"
+	"github.com/Yeti47/capture-clam/internal/capture"
 
 	"github.com/spf13/cobra"
 )
@@ -14,8 +14,7 @@ var listAudioCmd = &cobra.Command{
 	Short: "List available audio sources",
 	Long:  `List all available PulseAudio sources for audio input.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		deviceLister := devices.NewDeviceLister()
-		audioDevices, err := deviceLister.ListAudioDevices()
+		audioDevices, err := capture.ListAudioDevices()
 		if err != nil {
 			fmt.Printf("❌ Error listing audio devices: %v\n", err)
 			os.Exit(1)

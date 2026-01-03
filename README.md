@@ -13,6 +13,27 @@ Perfect for playing games directly on your PC screen through a capture card whil
 - **Simple device selection** - List and select audio/video devices by index or name
 - **Automatic cleanup** - Remove orphaned PulseAudio loopback modules
 
+## Quickstart
+
+For a quick setup using pre-built binaries (Linux AMD64 only):
+
+1. Download the latest release from [GitHub Releases](https://github.com/Yeti47/capture-clam/releases).
+2. Download `capture-clam-linux-amd64` and `install-dependencies.sh`.
+3. Make them executable:
+   ```bash
+   chmod +x capture-clam-linux-amd64 install-dependencies.sh
+   ```
+4. Install dependencies:
+   ```bash
+   ./install-dependencies.sh
+   ```
+5. Run the app:
+   ```bash
+   ./capture-clam-linux-amd64 --help
+   ```
+
+**Note:** ARM64 users should build from source as described in the Installation section.
+
 ## Requirements
 
 - Go 1.16 or later
@@ -42,27 +63,6 @@ git clone https://github.com/Yeti47/capture-clam.git
 cd capture-clam
 go build -o capture-clam ./cmd/capture-clam
 ```
-
-## Quickstart
-
-For a quick setup using pre-built binaries (Linux AMD64 only):
-
-1. Download the latest release from [GitHub Releases](https://github.com/Yeti47/capture-clam/releases).
-2. Download `capture-clam-linux-amd64` and `install-dependencies.sh`.
-3. Make them executable:
-   ```bash
-   chmod +x capture-clam-linux-amd64 install-dependencies.sh
-   ```
-4. Install dependencies:
-   ```bash
-   ./install-dependencies.sh
-   ```
-5. Run the app:
-   ```bash
-   ./capture-clam-linux-amd64 --help
-   ```
-
-**Note:** ARM64 users should build from source as described in the Installation section.
 
 ## Usage
 

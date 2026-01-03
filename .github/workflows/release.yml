@@ -43,12 +43,7 @@ jobs:
         with:
           files: |
             capture-clam-linux-amd64
-            capture-clam-linux-arm64
             install-dependencies.sh
-            checksums.txt
-          generate_release_notes: true
-          draft: false
-          prinstall-dependencies.sh
             checksums.txt
           body: |
             ## Installation
@@ -58,4 +53,8 @@ jobs:
             3. Install dependencies: `./install-dependencies.sh`
             4. Run: `./capture-clam-linux-amd64 --help`
             
+            **Note:** ARM64 users should build from source using `go build ./cmd/capture-clam`
+          generate_release_notes: true
+          draft: false
+          prerelease: false
             **Note:** ARM64 users should build from source using `go build ./cmd/capture-clam`

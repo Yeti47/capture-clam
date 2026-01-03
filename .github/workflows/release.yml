@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          
+      - name: Install GStreamer development libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          
+      - name: Get version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Build Linux AMD64 binary
+        run: |
+          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o capture-clam-linux-amd64 ./cmd/capture-clam
+          
+      - name: Build Linux ARM64 binary
+        run: |
+          CC=aarch64-linux-gnu-gcc GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o capture-clam-linux-arm64 ./cmd/capture-clam
+          
+      - name: Create checksums
+        run: |
+          sha256sum capture-clam-linux-amd64 > checksums.txt
+          sha256sum capture-clam-linux-arm64 >> checksums.txt
+          
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            capture-clam-linux-amd64
+            capture-clam-linux-arm64
+            install-dependencies.sh
+            checksums.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false

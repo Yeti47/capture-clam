@@ -32,16 +32,11 @@ jobs:
         
       - name: Build Linux AMD64 binary
         run: |
-          GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o capture-clam-linux-amd64 ./cmd/capture-clam
-          
-      - name: Build Linux ARM64 binary
-        run: |
-          CC=aarch64-linux-gnu-gcc GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o capture-clam-linux-arm64 ./cmd/capture-clam
+          go build -ldflags="-s -w" -o capture-clam-linux-amd64 ./cmd/capture-clam
           
       - name: Create checksums
         run: |
           sha256sum capture-clam-linux-amd64 > checksums.txt
-          sha256sum capture-clam-linux-arm64 >> checksums.txt
           
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -53,4 +48,14 @@ jobs:
             checksums.txt
           generate_release_notes: true
           draft: false
-          prerelease: false
+          prinstall-dependencies.sh
+            checksums.txt
+          body: |
+            ## Installation
+            
+            1. Download `capture-clam-linux-amd64` and `install-dependencies.sh`
+            2. Make them executable: `chmod +x capture-clam-linux-amd64 install-dependencies.sh`
+            3. Install dependencies: `./install-dependencies.sh`
+            4. Run: `./capture-clam-linux-amd64 --help`
+            
+            **Note:** ARM64 users should build from source using `go build ./cmd/capture-clam`

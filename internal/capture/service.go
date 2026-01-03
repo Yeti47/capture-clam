@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/go-gst/go-gst/gst"
 )
 
 // AudioDevice represents an audio source device
@@ -53,7 +54,8 @@ type Service struct {
 	videoDevice string
 	audioDevice string
 	config      Config
-	cmd         *exec.Cmd
+	pipeline    *gst.Pipeline
+	done        chan bool
 }
 
 // New creates a new capture service with default configuration.
@@ -143,50 +145,86 @@ func GetDefaultVideoDevice() (string, error) {
 
 // Start launches the gstreamer preview with audio and video.
 func (s *Service) Start() error {
-	gstArgs := []string{"-v",
-		"v4l2src", "device=" + s.videoDevice, "!",
-		fmt.Sprintf("%s,framerate=%s", s.config.VideoFormat, s.config.Framerate), "!", "jpegdec", "!", "videoconvert", "!",
-		"queue", "leaky=downstream", fmt.Sprintf("max-size-buffers=%d", s.config.VideoQueueSize), "!",
-		"autovideosink", "sync=false",
-	}
+	// Initialize GStreamer
+	gst.Init(nil)
+
+	// Build pipeline description
+	pipelineDesc := fmt.Sprintf(
+		"v4l2src device=%s ! %s,framerate=%s ! jpegdec ! videoconvert ! queue leaky=downstream max-size-buffers=%d name=vqueue ! xvimagesink name=videosink sync=false",
+		s.videoDevice,
+		s.config.VideoFormat,
+		s.config.Framerate,
+		s.config.VideoQueueSize,
+	)
 
 	if s.audioDevice != "" {
-		gstArgs = append(gstArgs,
-			"pulsesrc", "device="+s.audioDevice, "!",
-			fmt.Sprintf("audio/x-raw,format=%s,rate=%d,channels=%d", s.config.AudioFormat, s.config.AudioRate, s.config.AudioChannels), "!",
-			"audioconvert", "!", "audioresample", "!",
-			"queue", "leaky=downstream", fmt.Sprintf("max-size-buffers=%d", s.config.AudioQueueSize), "!",
-			"autoaudiosink", "sync=false",
+		pipelineDesc += fmt.Sprintf(
+			" pulsesrc device=%s ! audio/x-raw,format=%s,rate=%d,channels=%d ! audioconvert ! audioresample ! queue leaky=downstream max-size-buffers=%d name=aqueue ! autoaudiosink sync=false",
+			s.audioDevice,
+			s.config.AudioFormat,
+			s.config.AudioRate,
+			s.config.AudioChannels,
+			s.config.AudioQueueSize,
 		)
 	}
 
-	s.cmd = exec.Command("gst-launch-1.0", gstArgs...)
-	s.cmd.Stdout = os.Stdout
-	s.cmd.Stderr = os.Stderr
-	if err := s.cmd.Start(); err != nil {
-		return fmt.Errorf("error starting gstreamer pipeline: %w", err)
+	// Create pipeline from description
+	pipeline, err := gst.NewPipelineFromString(pipelineDesc)
+	if err != nil {
+		return fmt.Errorf("failed to create pipeline: %w", err)
 	}
+	s.pipeline = pipeline
+	s.done = make(chan bool)
+
+	// Handle messages on the bus
+	go func() {
+		bus := s.pipeline.GetBus()
+		for {
+			msg := bus.TimedPopFiltered(gst.ClockTimeNone, gst.MessageEOS|gst.MessageError)
+			if msg == nil {
+				break
+			}
+
+			switch msg.Type() {
+			case gst.MessageEOS:
+				s.done <- true
+				return
+			case gst.MessageError:
+				gerr := msg.ParseError()
+				fmt.Fprintf(os.Stderr, "Error from %s: %s\n", msg.Source(), gerr.Error())
+				s.done <- true
+				return
+			}
+		}
+	}()
+
+	// Set pipeline to playing
+	if err := s.pipeline.SetState(gst.StatePlaying); err != nil {
+		return fmt.Errorf("failed to set pipeline to playing: %w", err)
+	}
+
 	return nil
 }
 
 // Wait blocks until the capture process finishes.
 func (s *Service) Wait() error {
-	if s.cmd == nil {
+	if s.done == nil {
 		return nil
 	}
-	return s.cmd.Wait()
+	<-s.done
+	return nil
 }
 
 // Stop terminates the capture process.
 func (s *Service) Stop() error {
-	if s.cmd == nil || s.cmd.Process == nil {
-		return nil
+	if s.pipeline != nil {
+		s.pipeline.SetState(gst.StateNull)
 	}
-	if err := s.cmd.Process.Kill(); err != nil {
-		if errors.Is(err, os.ErrProcessDone) || strings.Contains(err.Error(), "already finished") {
-			return nil
+	if s.done != nil {
+		select {
+		case s.done <- true:
+		default:
 		}
-		return err
 	}
 	return nil
 }
